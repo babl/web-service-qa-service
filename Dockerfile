@@ -7,6 +7,8 @@ COPY static /httpserver/static
 ADD babl-qa_linux_amd64 /bin/babl-qa
 RUN chmod +x /bin/babl-qa
 
-WORKDIR /httpserver/static
+WORKDIR /
 
-CMD ["/bin/update_hosts.sh; /bin/babl-qa -l=:$PORT -kb=queue.babl.sh:9092"]
+#CMD ["/bin/update_hosts.sh; /bin/babl-qa -l=:$PORT -kb=queue.babl.sh:9092"]
+
+CMD /bin/update_hosts.sh && /bin/babl-qa -l=:$PORT -kb=queue.babl.sh:9092
