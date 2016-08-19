@@ -1,1 +1,3 @@
 id: babl/qa-service
+cmd: /bin/update_hosts.sh; /bin/babl-qa -l=:$PORT -kb=queue.babl.sh:9092
+mem: 64
