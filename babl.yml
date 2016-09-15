@@ -1,5 +1,7 @@
 id: babl/qa-service
 cmd: /bin/update_hosts.sh; /bin/babl-qa -l=:$PORT -kb=queue.babl.sh:9092
 mem: 32
+build: false
+deploy: false
 env:
   SERVICE_TAGS: web
