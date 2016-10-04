@@ -1,5 +1,5 @@
 id: babl/qa-service
-cmd: /bin/update_hosts.sh; /bin/babl-qa -l=:$PORT -kb=queue.babl.sh:9092
+cmd: /bin/update_hosts.sh; /bin/babl-qa -l=:$PORT -kb=$BABL_KAFKA_BROKERS
 mem: 32
 build: false
 deploy: false

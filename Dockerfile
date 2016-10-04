@@ -9,6 +9,4 @@ RUN chmod +x /bin/babl-qa
 
 WORKDIR /
 
-#CMD ["/bin/update_hosts.sh; /bin/babl-qa -l=:$PORT -kb=queue.babl.sh:9092"]
-
-CMD /bin/update_hosts.sh && /bin/babl-qa -l=:$PORT -kb=queue.babl.sh:9092
+CMD /bin/update_hosts.sh && /bin/babl-qa -l=:$PORT -kb=$BABL_KAFKA_BROKERS
