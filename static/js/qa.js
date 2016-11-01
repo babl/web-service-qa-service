@@ -34,14 +34,24 @@ function getError(err) {
   $("#myModal").modal();
 }
 
-function tableDataAddItem(item) {
+function tableDataUpdateItem(item) {
+  if (item.rid.length == 0 || item.rid.indexOf('/') > 0) {
+    return;
+  }
+  var tableRow = $('tbody#'+item.rid);
+  var status_white = "#FFFFFF";
   var status_green = "#88CF85";
   var status_red = "#F87070";
   var duration_green = "#48B444";
   var duration_orange = "#F4B27B";
   var duration_red = "#F53636";
 
-  var status_color = item.status == 200 ? status_green : status_red;
+  var status_color = status_white;
+  if (item.status == 200) {
+    status_color = status_green;
+  } else if (item.status != 0) {
+    status_color = status_red;
+  }
   var status_class = item.status == 200 ? "success" : "fail";
   var status_style = "";
   if ((statusFilter == "success" && item.status != 200) || (statusFilter == "fail" && item.status == 200)) {
@@ -55,7 +65,7 @@ function tableDataAddItem(item) {
   } else {
     duration_color = duration_red;
   }
-  $("#tableDataHeader").after(
+  var tableBodyContent =
     "<tbody id=\""+item.rid+"\" class=\"bodycontent "+status_class+"\" "+status_style+">"+
       "<tr class=\"trcontent\">"+
         "<th class=\"text-center\">"+
@@ -68,7 +78,22 @@ function tableDataAddItem(item) {
         "<td><span style=\"color:"+duration_color+"\">"+parseTime(item.duration_ms)+"</span></td>"+
         "<td bgcolor=\""+status_color+"\">"+item.status+"</td>"+
       "</tr>"+
-    "</tbody>");
+    "</tbody>";
+    // tableBodyContent: insert or update
+    if (tableRow.length == 0) {
+      $("#tableDataHeader").after(tableBodyContent);
+    } else {
+      var tableDetailsRow = $('#tbase-'+item.rid);
+      var tableDetailsHTML = "";
+      if (tableDetailsRow.length > 0) {
+        tableDetailsHTML = tableDetailsRow.html();
+      }
+      tableRow.replaceWith(tableBodyContent);
+      if (tableDetailsHTML.length > 0) {
+        $("#icon-"+item.rid).removeClass("glyphicon-plus").addClass("glyphicon-minus");
+        $("#"+item.rid).append("<tr id=\"tbase-"+item.rid+"\" class=\"trcontent\">"+tableDetailsHTML+"</tr>");
+      }
+    }
     var count = 0;
     var trs_success = $("#tableData").find(".bodycontent.success");
     var trs_fail = $("#tableData").find(".bodycontent.fail");
@@ -80,6 +105,16 @@ function tableDataAddItem(item) {
       count = trs_success.length + trs_fail.length;
     }
     tableDataAppendCount(count);
+}
+
+function tableDataUpdateItemDetails(data) {
+  if (data.length == 0) {
+    return;
+  }
+  var tableDetailsRow = $('#tbase-'+data[0].rid);
+  if (tableDetailsRow.length > 0) {
+    updateRequestDetails(data);
+  }
 }
 
 function tableDataAddInfo(msg) {
@@ -113,7 +148,7 @@ function updateRequestHistory() {
     $(".bodycontent").remove()
     $("#statusDropDown").text("Status: all")
     $.each(data, function(i, item) {
-      tableDataAddItem(item);
+      tableDataUpdateItem(item);
     });
     tableDataAppendCount(count);
     $('#reqHistButton').focus();
@@ -126,7 +161,7 @@ function parseTime(duration_ms){
   if (duration_ms < 1000) {
     time = Number(parseFloat(duration_ms)).toFixed(0)+"ms"
   } else if (duration_ms >= 1000 && duration_ms < 2000) {
-    time = Number(parseFloat(1703.433039)/1000).toFixed(2)+"s"
+    time = Number(parseFloat(duration_ms)/1000).toFixed(2)+"s"
   } else {
     var sec = parseFloat(duration_ms)/1000;
     var min = Math.floor(sec/60)
@@ -134,6 +169,89 @@ function parseTime(duration_ms){
     time = min+"m "+sec+"s"
   }
   return time
+}
+
+function updateRequestDetails(data) {
+  var rid = data[0].rid;
+  var tableDetailsRow = $('#tbase-'+rid);
+  if (tableDetailsRow.length > 0) {
+    tableDetailsRow.remove();
+  }
+  var details =
+    "<table class=\"table table-condensed table-bordered table-striped table-hover\">"+
+    "    <thead>"+
+    "      <tr>"+
+    "        <th>Step</th>"+
+    "        <th>RequestId</th>"+
+    "        <th>Host</th>"+
+    "        <th>Service</th>"+
+    "        <th>Message</th>"+
+    "        <th>Topic</th>"+
+    "        <th>Partition</th>"+
+    "        <th>Offset</th>"+
+    "        <th>Msg</th>"+
+    "        <th>Error</th>"+
+    "        <th>Duration [ms]</th>"+
+    "        <th>Status</th>"+
+    "        </tr>"+
+    "    </thead>";
+
+  // get message status
+  var globalMessageStatus = 0;
+  $.each(data, function(i, item) {
+    if (item.status != 0 && globalMessageStatus == 0) {
+      globalMessageStatus = item.status;
+    }
+  });
+  var status_class = globalMessageStatus == 200 ? "details_success" : "details_fail";
+  $.each(data, function(i, item) {
+    var msgHidden = 'hidden'
+    var errHidden = 'hidden'
+    if (item.topic.length > 0 && (item.partition > 0 || item.offset > 0))
+      msgHidden = ''
+    if (item.status != 200 && item.status != 0 && item.message_error.length > 0)
+      errHidden = ''
+
+    // optional messages
+    if (item.step === 100) {
+      details +=
+        "<tbody id=\"tb-"+item.rid+"\" class=\"bodycontent "+status_class+"\">"+
+        "  <tr class=\"trcontent\">"+
+        "    <td colspan=\"12\" class=\"text-center\">additional messages</td>"+
+        "  </tr>"+
+        "</tbody>";
+    }
+    var progress = item.progress || item.step;
+    details +=
+      "<tbody id=\"tb-"+item.rid+"\" class=\"bodycontent"+status_class+"\">"+
+      "  <tr class=\"trcontent\">"+
+      "    <td>"+progress+"</td>"+
+      "    <td>"+item.rid+"</td>"+
+      "    <td>"+item.host+"</td>"+
+      "    <td>"+item.supervisor+item.module+"</td>"+
+      "    <td>"+item.message+"</td>"+
+      "    <td>"+item.topic+"</td>"+
+      "    <td>"+item.partition+"</td>"+
+      "    <td>"+item.offset+"</td>"+
+      "    <td><button type=\"button\" class=\""+msgHidden+" btn btn-default btn-sm\" onclick=\"getMessage('"+item.topic+"',"+item.partition+","+item.offset+")\">"+
+      "        <span class=\"glyphicon glyphicon-file\"></span></button>"+
+      "    </td>"+
+      "    <td><button type=\"button\" class=\""+errHidden+" btn btn-default btn-sm\" onclick=\"getError('"+item.message_error+"')\">"+
+      "        <span class=\"glyphicon glyphicon-exclamation-sign\"></span></button>"+
+      "    </td>"+
+      "    <td>"+parseTime(item.duration_ms)+"</td>"+
+      "    <td>"+item.status+"</td>"+
+      "  </tr>"+
+      "</tbody>";
+  });
+  details += "</table>";
+  $("#icon-"+rid).removeClass("glyphicon-plus").addClass("glyphicon-minus");
+  $("#"+rid).append(
+    "    <tr id=\"tbase-"+rid+"\" class=\"trcontent\">"+
+    "        <th class=\"text-center\">"+
+    "        </th>"+
+    "        <td colspan=\"8\">"+details+"</td>"+
+    "    </tr>");
 }
 
 function getRequestDetails(rid) {
@@ -150,81 +268,7 @@ function getRequestDetails(rid) {
     format: "json"
   })
   .done(function(data) {
-    var details =
-      "<table class=\"table table-condensed table-bordered table-striped table-hover\">"+
-      "    <thead>"+
-      "      <tr>"+
-      "        <th>Step</th>"+
-      "        <th>RequestId</th>"+
-      "        <th>Host</th>"+
-      "        <th>Service</th>"+
-      "        <th>Message</th>"+
-      "        <th>Topic</th>"+
-      "        <th>Partition</th>"+
-      "        <th>Offset</th>"+
-      "        <th>Msg</th>"+
-      "        <th>Error</th>"+
-      "        <th>Duration [ms]</th>"+
-      "        <th>Status</th>"+
-      "        </tr>"+
-      "    </thead>";
-
-    // get message status
-    var globalMessageStatus = 0;
-    $.each(data, function(i, item) {
-      if (item.status != 0 && globalMessageStatus == 0) {
-        globalMessageStatus = item.status;
-      }
-    });
-    var status_class = globalMessageStatus == 200 ? "details_success" : "details_fail";
-    $.each(data, function(i, item) {
-      var msgHidden = 'hidden'
-      var errHidden = 'hidden'
-      if (item.topic.length > 0 && (item.partition > 0 || item.offset > 0))
-        msgHidden = ''
-      if (item.status != 200 && item.status != 0 && item.message_error.length > 0)
-        errHidden = ''
-
-      // optional messages
-      if (item.step === 100) {
-        details +=
-          "<tbody id=\"tb-"+item.rid+"\" class=\"bodycontent "+status_class+"\">"+
-          "  <tr class=\"trcontent\">"+
-          "    <td colspan=\"12\" class=\"text-center\">additional messages</td>"+
-          "  </tr>"+
-          "</tbody>";
-      }
-      var progress = item.progress || item.step;
-      details +=
-        "<tbody id=\"tb-"+item.rid+"\" class=\"bodycontent"+status_class+"\">"+
-        "  <tr class=\"trcontent\">"+
-        "    <td>"+progress+"</td>"+
-        "    <td>"+item.rid+"</td>"+
-        "    <td>"+item.host+"</td>"+
-        "    <td>"+item.supervisor+item.module+"</td>"+
-        "    <td>"+item.message+"</td>"+
-        "    <td>"+item.topic+"</td>"+
-        "    <td>"+item.partition+"</td>"+
-        "    <td>"+item.offset+"</td>"+
-        "    <td><button type=\"button\" class=\""+msgHidden+" btn btn-default btn-sm\" onclick=\"getMessage('"+item.topic+"',"+item.partition+","+item.offset+")\">"+
-        "        <span class=\"glyphicon glyphicon-file\"></span></button>"+
-        "    </td>"+
-        "    <td><button type=\"button\" class=\""+errHidden+" btn btn-default btn-sm\" onclick=\"getError('"+item.message_error+"')\">"+
-        "        <span class=\"glyphicon glyphicon-exclamation-sign\"></span></button>"+
-        "    </td>"+
-        "    <td>"+parseTime(item.duration_ms)+"</td>"+
-        "    <td>"+item.status+"</td>"+
-        "  </tr>"+
-        "</tbody>";
-    });
-    details += "</table>";
-    $("#icon-"+rid).removeClass("glyphicon-plus").addClass("glyphicon-minus");
-    $("#"+rid).append(
-      "    <tr id=\"tbase-"+rid+"\" class=\"trcontent\">"+
-      "        <th class=\"text-center\">"+
-      "        </th>"+
-      "        <td colspan=\"8\">"+details+"</td>"+
-      "    </tr>")
+    updateRequestDetails(data);
   });
 }
 
@@ -262,7 +306,11 @@ function connectWebsocket() {
         var messages = evt.data.split('\n');
         for (var i = 0; i < messages.length; i++) {
           var item = JSON.parse(messages[i]);
-          tableDataAddItem(item);
+          if (item.type === "history") {
+            tableDataUpdateItem(item.data);
+          } else if (item.type === "details") {
+            tableDataUpdateItemDetails(item.data);
+          }
         }
       };
   } else {
