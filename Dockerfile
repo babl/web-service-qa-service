@@ -1,7 +1,4 @@
-FROM busybox
-
-ADD update_hosts.sh /bin/
-RUN chmod +x /bin/update_hosts.sh
+FROM alpine:3.4
 
 COPY static /httpserver/static
 ADD babl-qa_linux_amd64 /bin/babl-qa
@@ -9,4 +6,4 @@ RUN chmod +x /bin/babl-qa
 
 WORKDIR /
 
-CMD /bin/update_hosts.sh && /bin/babl-qa -l=:$PORT -kb=$BABL_KAFKA_BROKERS
+CMD /bin/babl-qa -l=:$PORT -kb=$BABL_KAFKA_BROKERS
